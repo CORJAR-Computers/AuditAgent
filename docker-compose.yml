@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  audit-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8443:8443"
+    volumes:
+      - ./data:/app/data
+      - ./certs:/app/certs
+      - ./keys:/app/keys
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=https://+:8443
+    restart: unless-stopped

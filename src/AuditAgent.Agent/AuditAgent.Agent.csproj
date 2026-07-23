@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+<PropertyGroup>
+  <TargetFramework>net8.0-windows</TargetFramework>
+  <OutputType>Exe</OutputType>
+  <ImplicitUsings>enable</ImplicitUsings>
+  <Nullable>enable</Nullable>
+  <RootNamespace>AuditAgent.Agent</RootNamespace>
+  <LangVersion>latest</LangVersion>
+  <PublishSingleFile>true</PublishSingleFile>
+  <SelfContained>true</SelfContained>
+  <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+  <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+  <PublishTrimmed>true</PublishTrimmed>
+  <ApplicationManifest>app.manifest</ApplicationManifest>
+</PropertyGroup>
+
+<ItemGroup>
+  <ProjectReference Include="..\AuditAgent.Core\AuditAgent.Core.csproj" />
+  <ProjectReference Include="..\AuditAgent.Collectors\AuditAgent.Collectors.csproj" />
+  <ProjectReference Include="..\AuditAgent.Security\AuditAgent.Security.csproj" />
+</ItemGroup>
+
+</Project>
