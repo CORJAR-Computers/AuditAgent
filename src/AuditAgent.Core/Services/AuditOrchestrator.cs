@@ -123,6 +123,11 @@ public class AuditOrchestrator
             Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
         };
         var json = JsonSerializer.Serialize(report, options);
+        return ComputeHashFromJson(json);
+    }
+
+    public static string ComputeHashFromJson(string json)
+    {
         var hash = System.Security.Cryptography.SHA256.HashData(
             System.Text.Encoding.UTF8.GetBytes(json));
         return Convert.ToHexString(hash).ToLowerInvariant();

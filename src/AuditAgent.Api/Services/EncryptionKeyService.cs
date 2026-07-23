@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using AuditAgent.Security;
 
 namespace AuditAgent.Api.Services;
 

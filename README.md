@@ -4,53 +4,22 @@ Sistema completo para auditar equipos empresariales: inventario de hardware,
 software instalado, parches de seguridad y red. Desarrollado en C# / .NET 8
 con seguridad como prioridad.
 
-## Arquitectura
+## Formatos de Salida
 
-```
-+------------------------------------------+
-|        Agente de Escritorio (C#)         |
-|  - WMI: hardware, SO, red, parches       |
-|  - Registry: software instalado           |
-|  - Firma RSA-4096 del reporte             |
-|  - Cifrado AES-256-GCM                    |
-|  - Publicacion: EXE unico (~15MB)         |
-+--------------------+---------------------+
-                     | HTTPS + mTLS (TLS 1.3)
-                     v
-+------------------------------------------+
-|         Servidor Central (API)           |
-|  - ASP.NET Core 8 Web API                |
-|  - Recepcion y validacion de reportes     |
-|  - Verificacion de firma digital           |
-|  - Descifrado con clave maestra           |
-|  - Almacenamiento persistente             |
-|  - Dashboard (futuro)                     |
-+------------------------------------------+
-```
+El tecnico puede elegir uno o varios formatos al ejecutar la auditoria:
 
-## Proyectos
-
-| Proyecto | Descripcion |
-|----------|-------------|
-| `AuditAgent.Core` | Modelos, interfaces y orquestador de auditoria |
-| `AuditAgent.Collectors` | Recolectores WMI + Registry (solo Windows) |
-| `AuditAgent.Security` | AES-256-GCM, RSA-4096, certificados X.509, mTLS |
-| `AuditAgent.Agent` | Agente principal (EXE con manifest de admin) |
-| `AuditAgent.CLI` | Herramienta CLI standalone para auditorias puntuales |
-| `AuditAgent.Api` | Servidor central REST API |
-| `AuditAgent.Tests` | Tests unitarios (xUnit) |
-
-## Requisitos
-
-- **Para compilar**: .NET 8 SDK
-- **Para ejecutar el agente**: Windows 10/11 (no requiere .NET instalado)
-- **Para el servidor**: .NET 8 Runtime o Docker
+| Formato | Descripcion | Uso ideal |
+|---------|-------------|------------|
+| **PDF** | Informe profesional con tablas, secciones y paginacion | Enviar por email, archivo, imprimir |
+| **HTML** | Informe visual interactivo con estilos CSS | Ver en navegador, compartir en red |
+| **JSON** | Datos estructurados completos | Importar en otro sistema, base de datos |
+| **CSV** | Tabla de software instalado | Abrir en Excel, Google Sheets |
 
 ## Compilacion
 
 ```bash
-# Restaurar dependencias
-.dotnet restore
+# Restaurar dependencias (incluye Spectre.Console + QuestPDF)
+dotnet restore
 
 # Compilar todo
 dotnet build
@@ -58,43 +27,58 @@ dotnet build
 # Ejecutar tests
 dotnet test
 
-# Publicizar agente como EXE unico
+# Publicizar agente como EXE unico (con soporte PDF)
 dotnet publish src/AuditAgent.Agent -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 
 # Publicizar CLI
 dotnet publish src/AuditAgent.CLI -c Release -r win-x64 --self-contained -p:PublishSingleFile=true
 ```
 
-## Uso del Agente
+## Uso
 
-### Auditoria rapida (sin enviar al servidor)
+### Interactivo (recomendado)
 
 ```cmd
-# Ejecutar como administrador
+# Ejecutar como administrador - muestra menu de formato
 AuditAgent.Agent.exe
-```
 
-Esto genera un reporte JSON en `./reports/` con toda la informacion del equipo.
-
-### Opciones de linea de comandos
-
-```cmd
-AuditAgent.Agent.exe --send          # Enviar al servidor central
-AuditAgent.Agent.exe --use-wmi       # Tambien usar WMI Win32_Product (lento)
-AuditAgent.Agent.exe --no-updates    # Excluir actualizaciones de Windows
-```
-
-### Uso del CLI (herramienta ligera)
-
-```cmd
-# Auditoria basica con salida JSON
+# CLI con menu interactivo
 AuditAgent.CLI.exe
+```
 
-# Con ruta personalizada y exportacion CSV
-AuditAgent.CLI.exe --output C:\auditoria\pc-001.json --csv
+Se mostrara un menu donde puedes seleccionar con flechas + espacio los formatos que deseas:
 
-# Solo software (sin actualizaciones), modo silencioso
-AuditAgent.CLI.exe --no-updates --quiet
+```
+Seleccione el formato de salida:
+  [x] JSON   - Reporte de datos estructurado (para sistemas)
+  [x] HTML   - Informe visual interactivo (para navegador)
+  [ ] PDF    - Informe profesional para imprimir o enviar por email
+  [x] CSV    - Lista de software en tabla (para Excel)
+```
+
+### Por linea de comandos
+
+```cmd
+# Generar solo PDF
+AuditAgent.CLI.exe -f pdf
+
+# Generar HTML + PDF
+AuditAgent.CLI.exe -f html,pdf -o C:\auditoria\pc-001
+
+# JSON + CSV, sin actualizaciones del sistema
+AuditAgent.CLI.exe -f json,csv --no-updates
+
+# Modo silencioso (solo JSON)
+AuditAgent.CLI.exe -q
+```
+
+### Opciones del Agent
+
+```cmd
+AuditAgent.Agent.exe                        # Menu interactivo
+AuditAgent.Agent.exe --format=html,pdf       # Formatos por argumento
+AuditAgent.Agent.exe --no-updates            # Sin actualizaciones
+AuditAgent.Agent.exe --use-wmi               # WMI completo (lento)
 ```
 
 ## Informacion que recolecta
@@ -134,79 +118,35 @@ AuditAgent.CLI.exe --no-updates --quiet
 ### Cifrado AES-256-GCM
 - Cifrado autenticado (confidencialidad + integridad en uno)
 - Nonce aleatorio unico por cifrado
-- Clave de 256 bits con PBKDF2 para derivacion
 
 ### Firma Digital RSA-4096
 - Cada reporte se firma con la clave privada del agente
 - SHA-256 como algoritmo de hash
-- No repudio: el agente no puede negar haber enviado el reporte
+
+### Proteccion de claves
+- ACL restrictiva: solo Administrators y SYSTEM acceden a la clave privada
+- Claves RSA generadas y almacenadas localmente
 
 ### Comunicacion mTLS
 - TLS 1.3 obligatorio (fallback a 1.2)
 - Autenticacion mutua con certificados X.509
-- Whitelist de servidores permitidos
-- Timeouts estrictos (10s conexion, 60s operacion)
+- API Key para proteger endpoints de escritura
 
-### Proteccion del agente
-- Manifest UAC: requiere administrador
-- Publicacion como Single File EXE (difficil de decompilar)
-- Claves RSA generadas y almacenadas localmente
-- Para produccion: ofuscar con ConfuserEx o Dotfuscator
-- Para produccion: firmar el EXE con Authenticode
-
-## Configuracion del Servidor
-
-### Opcion 1: Docker
-
-```bash
-# Generar certificados (primera vez)
-dotnet run --project src/AuditAgent.Api --generate-certs
-
-# Levantar servidor
-docker compose up -d
-```
-
-### Opcion 2: Ejecutar directamente
-
-```bash
-dotnet run --project src/AuditAgent.Api
-```
-
-El servidor escucha en `https://localhost:8443`.
-
-## Estructura de Archivos
+## Estructura
 
 ```
 AuditAgent/
-+-- AuditAgent.sln
-+-- Dockerfile
-+-- docker-compose.yml
 +-- src/
-|   +-- AuditAgent.Core/          # Modelos e interfaces compartidos
-|   +-- AuditAgent.Collectors/    # Recolectores WMI + Registry
-|   +-- AuditAgent.Security/      # Cifrado, firmas, certificados, mTLS
-|   +-- AuditAgent.Agent/          # Agente principal (EXE)
-|   +-- AuditAgent.Api/            # Servidor central REST API
-|   +-- AuditAgent.CLI/            # Herramienta CLI ligera
-+-- tests/
-|   +-- AuditAgent.Tests/          # Tests unitarios
-+-- keys/                          # Claves RSA (generadas al ejecutar)
-+-- certs/                         # Certificados X.509
-+-- reports/                       # Reportes de auditoria generados
-+-- data/                          # Datos del servidor (API)
+|   +-- AuditAgent.Core/       # Modelos, interfaces, orquestador
+|   +-- AuditAgent.Collectors/ # Recolectores WMI + Registry
+|   +-- AuditAgent.Security/   # Cifrado, firmas, certificados
+|   +-- AuditAgent.Agent/      # Agente principal (menu interactivo)
+|   +-- AuditAgent.Api/        # Servidor REST API
+|   +-- AuditAgent.CLI/        # CLI ligera con selector de formato
++-- tests/AuditAgent.Tests/    # Tests unitarios
++-- reports/                   # Reportes generados (JSON/HTML/PDF/CSV)
 ```
-
-## Mejoras futuras
-
-- [ ] Servicio de Windows automatico (TopShelf o Worker Service)
-- [ ] Despliegue via GPO (Group Policy)
-- [ ] Dashboard web React/Next.js para visualizar reportes
-- [ ] Base de datos SQL Server/PostgreSQL en el servidor
-- [ ] Comparacion de licencias de software
-- [ ] Deteccion de software no autorizado
-- [ ] Integracion con Active Directory
-- [ ] Notificaciones por email
 
 ## Licencia
 
-Proyecto privado. Uso corporativo interno.
+Proyecto privado. Uso corporativo interno. CORJAR Computers.

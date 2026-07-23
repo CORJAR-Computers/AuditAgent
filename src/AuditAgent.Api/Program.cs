@@ -1,11 +1,11 @@
 using AuditAgent.Api.Services;
+using AuditAgent.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Configurar Kestrel con HTTPS y certificado de servidor
+// Configurar Kestrel con HTTPS
 builder.WebHost.ConfigureKestrel(options =>
 {
-    // Configurar certificado del servidor
     var certPath = builder.Configuration["Server:CertPath"];
     var certPassword = builder.Configuration["Server:CertPassword"];
     if (!string.IsNullOrEmpty(certPath))
@@ -23,19 +23,14 @@ builder.WebHost.ConfigureKestrel(options =>
 builder.Services.AddControllers();
 builder.Services.AddSingleton<AuditStorageService>();
 builder.Services.AddSingleton<EncryptionKeyService>();
-
-// CORS para el dashboard frontend
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Dashboard", policy =>
     {
         policy.WithOrigins(builder.Configuration["Cors:AllowedOrigin"] ?? "https://localhost:3000")
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyHeader().AllowAnyMethod();
     });
 });
-
-// Swagger para desarrollo
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -45,6 +40,13 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+// FIX: Autenticacion por API Key para endpoints POST
+var apiKey = builder.Configuration["Security:ApiKey"];
+if (!string.IsNullOrEmpty(apiKey))
+{
+    app.UseApiKeyAuthentication(apiKey);
 }
 
 app.UseCors("Dashboard");

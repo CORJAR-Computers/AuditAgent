@@ -1,24 +1,17 @@
 using System.Security.Cryptography;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using AuditAgent.Collectors;
 using AuditAgent.Core.Services;
 using AuditAgent.Security;
+using Spectre.Console;
 
 namespace AuditAgent.Agent;
 
 /// <summary>
 /// Agente de Auditoria de Software.
-/// 
-/// Este programa es el entry point que:
-/// 1. Inicializa los recolectores de datos (WMI, Registry)
-/// 2. Configura la capa de seguridad (AES-256, RSA-4096)
-/// 3. Ejecuta la auditoria completa
-/// 4. Firma digitalmente el reporte
-/// 5. Cifra el reporte y lo envia al servidor central
-/// 6. Guarda copia local cifrada
-/// 
-/// Puede ejecutarse como:
-/// - Aplicacion de consola standalone (una sola vez)
-/// - Servicio de Windows (ejecucion periodica)
+/// Ejecuta la auditoria completa y permite al tecnico elegir
+/// el formato de salida del informe (JSON, HTML, PDF, CSV).
 /// </summary>
 public static class Program
 {
@@ -30,33 +23,23 @@ public static class Program
     {
         Console.OutputEncoding = System.Text.Encoding.UTF8;
 
-        Console.WriteLine("=".PadRight(60, '='));
-        Console.WriteLine("  AUDIT AGENT v" + Version);
-        Console.WriteLine("  Agente de Auditoria de Software Corporativo");
-        Console.WriteLine("=".PadRight(60, '='));
-        Console.WriteLine();
-
         try
         {
             // Verificar privilegios de administrador
             if (!IsRunningAsAdmin())
             {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine("[ADVERTENCIA] No se ejecuta como administrador.");
-                Console.WriteLine("  Alguna informacion puede no estar disponible.");
-                Console.ResetColor();
+                AnsiConsole.MarkupLine("[yellow][ADVERTENCIA] No se ejecuta como administrador.[/]");
+                AnsiConsole.MarkupLine("[yellow]  Alguna informacion puede no estar disponible.[/]");
                 Console.WriteLine();
             }
 
-            // Paso 1: Inicializar seguridad (claves RSA)
-            Console.WriteLine("[1/6] Inicializando seguridad...");
-            var (privateKey, publicKey) = EnsureRsaKeysExist();
-            var signer = new RsaSigner();
-            var publicKeyPem = RsaSigner.ExportPublicKeyPem(publicKey);
-            Console.WriteLine("  Claves RSA-4096 cargadas.");
+            // Paso 1: Inicializar seguridad
+            AnsiConsole.MarkupLine("[bold blue][1/5][/] Inicializando seguridad...");
+            var (privateKey, _) = EnsureRsaKeysExist();
+            AnsiConsole.MarkupLine("  [green]Claves RSA-4096 cargadas.[/]");
 
             // Paso 2: Crear recolectores
-            Console.WriteLine("[2/6] Configurando recolectores de datos...");
+            AnsiConsole.MarkupLine("[bold blue][2/5][/] Configurando recolectores...");
             var collectors = new List<AuditAgent.Core.Interfaces.ICollector>
             {
                 new SystemCollector(),
@@ -69,100 +52,154 @@ public static class Program
                     IncludeSystemUpdates = !args.Contains("--no-updates")
                 }
             };
-            Console.WriteLine("  " + collectors.Count + " recolectores configurados.");
+            AnsiConsole.MarkupLine($"  [green]{collectors.Count} recolectores listos.[/]");
 
-            // Paso 3: Crear orquestador y ejecutar auditoria
-            Console.WriteLine("[3/6] Ejecutando auditoria...");
-            Console.WriteLine("  (Esto puede tardar 10-30 segundos)
-");
-
-            var orchestrator = new AuditOrchestrator(
-                collectors,
-                signer,
-                privateKey,
-                new ConsoleLogger());
-
-            var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-            var report = await orchestrator.ExecuteAuditAsync(cts.Token);
+            // Paso 3: Ejecutar auditoria
+            AnsiConsole.MarkupLine("[bold blue][3/5][/] Ejecutando auditoria...");
+            var report = await AnsiConsole.Status()
+                .Spinner(Spinner.Known.Dots)
+                .StartAsync("[bold]Recolectando datos...[/]", async _ =>
+                {
+                    var orch = new AuditOrchestrator(collectors, new RsaSigner(), privateKey);
+                    return await orch.ExecuteAuditAsync();
+                });
             report.AgentVersion = Version;
 
             // Paso 4: Mostrar resumen
             Console.WriteLine();
-            Console.WriteLine("[4/6] Resultados de la auditoria:");
-            Console.WriteLine($"  Equipo       : {report.Computer.ComputerName}");
-            Console.WriteLine($"  Fabricante   : {report.Computer.Manufacturer}");
-            Console.WriteLine($"  Modelo       : {report.Computer.Model}");
-            Console.WriteLine($"  Serial       : {report.Computer.SerialNumber}");
-            Console.WriteLine($"  Dominio      : {report.Computer.Domain}");
-            Console.WriteLine($"  S.O.         : {report.OperatingSystem.Caption}");
-            Console.WriteLine($"  RAM Total    : {report.Hardware.TotalMemoryGb} GB");
-            Console.WriteLine($"  Software     : {report.InstalledSoftware.Count} programas");
-            Console.WriteLine($"  Parches      : {report.SecurityPatches.Count} actualizaciones");
-            Console.WriteLine($"  Redes        : {report.NetworkAdapters.Count} adaptadores activos");
-            Console.WriteLine($"  Duracion     : {report.AuditDurationMs} ms");
-            Console.WriteLine($"  Firmado      : {(!string.IsNullOrEmpty(report.DigitalSignature) ? "Si" : "No")}");
-            Console.WriteLine($"  Hash (SHA256): {report.ReportHash}");
+            var grid = new Grid().AddColumn().AddColumn();
+            grid.AddRow("[bold]Equipo:[/]", report.Computer.ComputerName);
+            grid.AddRow("[bold]Fabricante:[/]", report.Computer.Manufacturer);
+            grid.AddRow("[bold]Modelo:[/]", report.Computer.Model);
+            grid.AddRow("[bold]Serial:[/]", report.Computer.SerialNumber);
+            grid.AddRow("[bold]S.O.:[/]", report.OperatingSystem.Caption);
+            grid.AddRow("[bold]RAM:[/]", $"{report.Hardware.TotalMemoryGb} GB");
+            grid.AddRow("[bold]Software:[/]", $"{report.InstalledSoftware.Count} programas");
+            grid.AddRow("[bold]Parches:[/]", $"{report.SecurityPatches.Count} actualizaciones");
+            grid.AddRow("[bold]Duracion:[/]", $"{report.AuditDurationMs} ms");
+            AnsiConsole.Write(new Panel(grid).Header("[bold]Resumen[/]").BorderColor(Color.Blue));
 
-            if (report.Warnings.Count > 0)
-            {
-                Console.ForegroundColor = ConsoleColor.Yellow;
-                Console.WriteLine($"  Advertencias : {report.Warnings.Count}");
-                Console.ResetColor();
-            }
+            // Paso 5: Seleccionar formato y guardar
+            Console.WriteLine();
+            AnsiConsole.MarkupLine("[bold blue][5/5][/] Generar informe...\n");
 
-            // Paso 5: Guardar reporte local
-            Console.WriteLine("
-[5/6] Guardando reporte local...");
+            var format = SelectFormat(args);
+            var baseName = $"audit_{report.Computer.ComputerName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}";
+            var basePath = Path.Combine(ReportsDir, baseName);
+
             Directory.CreateDirectory(ReportsDir);
-            var filename = $"audit_{report.Computer.ComputerName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.json";
-            var localPath = Path.Combine(ReportsDir, filename);
-            var jsonReport = orchestrator.SerializeReport(report);
-            await File.WriteAllTextAsync(localPath, jsonReport);
-            Console.WriteLine($"  Guardado en: {localPath}");
+            var generated = ExportReport(report, format, basePath);
 
-            // Paso 6: Enviar al servidor (si hay configuracion)
-            if (args.Contains("--send") || args.Contains("--register"))
-            {
-                Console.WriteLine("
-[6/6] Enviando al servidor central...");
-                await SendToServer(report, jsonReport, publicKeyPem);
-            }
-            else
-            {
-                Console.WriteLine("
-[6/6] Envio al servidor: omitido (use --send para enviar)");
-            }
+            Console.WriteLine();
+            foreach (var f in generated)
+                AnsiConsole.MarkupLine($"[green]  [checkmark] Generado:[/] {f}");
 
-            Console.WriteLine("
-" + "=".PadRight(60, '='));
-            Console.WriteLine("  Auditoria completada exitosamente.");
-            Console.WriteLine("=".PadRight(60, '='));
-
+            AnsiConsole.MarkupLine("\n[bold green]Auditoria completada exitosamente.[/]");
             return 0;
         }
         catch (OperationCanceledException)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine("
-[ERROR] Auditoria cancelada por timeout.");
-            Console.ResetColor();
+            AnsiConsole.MarkupLine("[red]Auditoria cancelada por timeout.[/]");
             return 130;
         }
         catch (Exception ex)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"
-[ERROR FATAL] {ex.GetType().Name}: {ex.Message}");
-            Console.ResetColor();
+            AnsiConsole.MarkupLine($"[red]ERROR FATAL:[/] {ex.GetType().Name}: {ex.Message}");
             return 1;
         }
     }
 
     /// <summary>
-    /// Asegura que existan las claves RSA del agente.
-    /// Si no existen, genera un nuevo par y las guarda en el directorio keys/.
+    /// Menu interactivo para elegir formato de salida.
+    /// Si se paso --format por argumento, lo usa directamente.
     /// </summary>
-    private static (RSA PrivateKey, RSA PublicKey) EnsureRsaKeysExist()
+    static List<string> SelectFormat(string[] args)
+    {
+        var formatArg = args.FirstOrDefault(a => a.StartsWith("--format="));
+        if (formatArg != null)
+        {
+            return formatArg.Substring(9).Split(',').ToList();
+        }
+
+        return AnsiConsole.Prompt(
+            new MultiSelectionPrompt<string>()
+                .Title("[bold]En que formato desea el informe?[/]")
+                .PageSize(10)
+                .AddChoices(new[] { "json", "html", "pdf", "csv" })
+                .InstructionsText("[grey](Espacio para seleccionar, A para todos, Enter para confirmar)[/]"));
+    }
+
+    /// <summary>
+    /// Exporta el reporte en uno o varios formatos.
+    /// </summary>
+    static List<string> ExportReport(
+        AuditAgent.Core.Models.AuditReport report,
+        List<string> formats,
+        string basePath)
+    {
+        var files = new List<string>();
+        var orchestrator = new AuditOrchestrator(
+            new List<AuditAgent.Core.Interfaces.ICollector>(), null, null);
+
+        foreach (var fmt in formats)
+        {
+            try
+            {
+                var path = fmt.ToLowerInvariant() switch
+                {
+                    "json" => ExportJson(report, orchestrator, basePath + ".json"),
+                    "html" => ExportHtml(report, basePath + ".html"),
+                    "pdf" => ExportPdf(report, basePath + ".pdf"),
+                    "csv" => ExportCsv(report, basePath + "_software.csv").Result,
+                    _ => throw new ArgumentException($"Formato: {fmt}")
+                };
+                files.Add(path);
+            }
+            catch (Exception ex)
+            {
+                AnsiConsole.MarkupLine($"[red]  Error ({fmt}): {ex.Message}[/]");
+            }
+        }
+        return files;
+    }
+
+    static string ExportJson(AuditAgent.Core.Models.AuditReport report, AuditOrchestrator orch, string path)
+    {
+        var json = orch.SerializeReport(report);
+        File.WriteAllText(path, json);
+        return path;
+    }
+
+    static string ExportHtml(AuditAgent.Core.Models.AuditReport report, string path)
+    {
+        var html = AuditAgent.CLI.HtmlReportGenerator.Generate(report);
+        File.WriteAllText(path, html);
+        return path;
+    }
+
+    static string ExportPdf(AuditAgent.Core.Models.AuditReport report, string path)
+    {
+        var pdf = AuditAgent.CLI.PdfReportGenerator.Generate(report);
+        File.WriteAllBytes(path, pdf);
+        return path;
+    }
+
+    static async Task<string> ExportCsv(AuditAgent.Core.Models.AuditReport report, string path)
+    {
+        using var w = new StreamWriter(path);
+        await w.WriteLineAsync("Nombre,Version,Fabricante,Fecha,Tamano MB,Fuente,Arq");
+        foreach (var sw in report.InstalledSoftware)
+        {
+            await w.WriteLineAsync($"{sw.Name?.Replace(",",";")},{sw.Version},{sw.Publisher?.Replace(",",";")},{sw.InstallDate},{sw.EstimatedSizeMb},{sw.Source},{sw.Architecture}");
+        }
+        return path;
+    }
+
+    /// <summary>
+    /// Genera claves RSA y las protege con ACL restrictiva.
+    /// FIX: Ahora restringe correctamente solo a Administrators.
+    /// </summary>
+    static (RSA PrivateKey, RSA PublicKey) EnsureRsaKeysExist()
     {
         Directory.CreateDirectory(KeysDir);
         var privPath = Path.Combine(KeysDir, "agent-private.pem");
@@ -170,111 +207,66 @@ public static class Program
 
         if (File.Exists(privPath) && File.Exists(pubPath))
         {
-            var privPem = File.ReadAllText(privPath);
-            var pubPem = File.ReadAllText(pubPath);
-            return (RsaSigner.ImportPrivateKeyFromPem(privPem),
-                    RsaSigner.ImportPublicKeyFromPem(pubPem));
+            return (RsaSigner.ImportPrivateKeyFromPem(File.ReadAllText(privPath)),
+                    RsaSigner.ImportPublicKeyFromPem(File.ReadAllText(pubPath)));
         }
 
-        // Generar nuevas claves
         var (priv, pub) = RsaSigner.GenerateKeyPair();
         File.WriteAllText(privPath, RsaSigner.ExportPrivateKeyPem(priv));
         File.WriteAllText(pubPath, RsaSigner.ExportPublicKeyPem(pub));
 
-        // Proteger archivos de clave (Windows ACL)
         if (OperatingSystem.IsWindows())
-        {
-            ProtectKeyFile(privPath);
-        }
+            ProtectPrivateKeyFile(privPath);
 
-        Console.WriteLine("  Nuevas claves RSA-4096 generadas.");
+        AnsiConsole.MarkupLine("  [green]Nuevas claves RSA-4096 generadas.[/]");
         return (priv, pub);
     }
 
     /// <summary>
-    /// Envia el reporte cifrado al servidor central.
+    /// FIX: Protege la clave privada restringiendo acceso SOLO
+    /// al grupo Administrators. Elimina permisos heredados.
     /// </summary>
-    private static async Task SendToServer(
-        AuditAgent.Core.Models.AuditReport report,
-        string jsonReport,
-        string publicKeyPem)
+    static void ProtectPrivateKeyFile(string path)
     {
         try
         {
-            // TODO: Leer certificado del agente y URL del servidor
-            // desde appsettings.json para produccion
-            
-            Console.WriteLine("  Para enviar al servidor, configure:");
-            Console.WriteLine("    1. appsettings.json con URL del servidor");
-            Console.WriteLine("    2. Certificado del agente (agent.pfx)");
-            Console.WriteLine("    3. Certificado CA del servidor (server-ca.cer)");
-            Console.WriteLine("  El reporte esta listo y firmado localmente.");
+            // Crear ACL nuevo (vacio, sin herencia)
+            var security = new FileSecurity();
+            security.SetAccessRuleProtection(true, false); // No heredar
+
+            // Solo Administrators tienen acceso total
+            security.AddAccessRule(new FileSystemAccessRule(
+                new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+
+            // SYSTEM tambien tiene acceso (necesario para servicios)
+            security.AddAccessRule(new FileSystemAccessRule(
+                new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                FileSystemRights.FullControl,
+                InheritanceFlags.ContainerInherit | InheritanceFlags.ObjectInherit,
+                PropagationFlags.None,
+                AccessControlType.Allow));
+
+            new FileInfo(path).SetAccessControl(security);
         }
         catch (Exception ex)
         {
-            Console.ForegroundColor = ConsoleColor.Red;
-            Console.WriteLine($"  Error al enviar: {ex.Message}");
-            Console.ResetColor();
+            AnsiConsole.MarkupLine($"[yellow]  No se pudo proteger clave: {ex.Message}[/]");
         }
     }
 
-    private static bool IsRunningAsAdmin()
+    static bool IsRunningAsAdmin()
     {
         if (!OperatingSystem.IsWindows()) return true;
         try
         {
-            var identity = System.Security.Principal.WindowsIdentity.GetCurrent();
-            var principal = new System.Security.Principal.WindowsPrincipal(identity);
-            return principal.IsInRole(System.Security.Principal.WindowsBuiltInRole.Administrator);
+            var identity = WindowsIdentity.GetCurrent();
+            return new WindowsPrincipal(identity)
+                .IsInRole(WindowsBuiltInRole.Administrator);
         }
         catch { return false; }
-    }
-
-    private static void ProtectKeyFile(string path)
-    {
-        // Restringir acceso al archivo de clave privada
-        try
-        {
-            var fileInfo = new System.IO.FileInfo(path);
-            var security = fileInfo.GetAccessControl();
-            security.AddAccessRule(new System.Security.AccessControl.FileSystemAccessRule(
-                System.Security.Principal.WindowsIdentity.GetCurrent().Name,
-                System.Security.AccessControl.FileSystemRights.FullControl,
-                System.Security.AccessControl.AccessControlType.Allow));
-            fileInfo.SetAccessControl(security);
-        }
-        catch { /* En contenedores o sin permisos */ }
-    }
-}
-
-/// <summary>Logger simple que escribe a consola.</summary>
-internal class ConsoleLogger : AuditAgent.Core.Services.ILogger
-{
-    public void LogInformation(string message, params object?[] args)
-        => Console.WriteLine($"  [INFO] {string.Format(message, args)}");
-
-    public void LogWarning(Exception? ex, string message, params object?[] args)
-    {
-        Console.ForegroundColor = ConsoleColor.Yellow;
-        Console.WriteLine($"  [WARN] {string.Format(message, args)}");
-        if (ex != null) Console.WriteLine($"         {ex.Message}");
-        Console.ResetColor();
-    }
-
-    public void LogWarning(string message, params object?[] args)
-        => LogWarning(null, message, args);
-
-    public void LogError(Exception ex, string message, params object?[] args)
-    {
-        Console.ForegroundColor = ConsoleColor.Red;
-        Console.WriteLine($"  [ERROR] {string.Format(message, args)}: {ex.Message}");
-        Console.ResetColor();
-    }
-
-    public void LogDebug(string message, params object?[] args)
-    {
-#if DEBUG
-        Console.WriteLine($"  [DBG] {string.Format(message, args)}");
-#endif
     }
 }

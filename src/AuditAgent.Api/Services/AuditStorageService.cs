@@ -1,23 +1,29 @@
 using System.Security.Cryptography;
 using System.Text.Json;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace AuditAgent.Api.Services;
 
 /// <summary>
 /// Servicio de almacenamiento de reportes de auditoria.
 /// Para produccion, reemplazar con Entity Framework + SQL Server/PostgreSQL.
-/// Esta implementacion guarda en archivos JSON como demo.
+/// FIX: Ahora obtiene la IP real del cliente via IHttpContextAccessor.
 /// </summary>
 public class AuditStorageService
 {
     private readonly string _storagePath;
     private readonly string _agentsPath;
     private readonly ILogger<AuditStorageService> _logger;
+    private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
 
-    public AuditStorageService(ILogger<AuditStorageService> logger)
+    public AuditStorageService(
+        ILogger<AuditStorageService> logger,
+        IHttpContextAccessor httpContextAccessor)
     {
         _logger = logger;
+        _httpContextAccessor = httpContextAccessor;
         _storagePath = Path.Combine(AppContext.BaseDirectory, "data", "reports");
         _agentsPath = Path.Combine(AppContext.BaseDirectory, "data", "agents");
         Directory.CreateDirectory(_storagePath);
@@ -32,30 +38,29 @@ public class AuditStorageService
         await _semaphore.WaitAsync();
         try
         {
-            // Extraer nombre del equipo del JSON
             using var doc = JsonDocument.Parse(jsonReport);
             var computerName = doc.RootElement
                 .GetProperty("computer")
                 .GetProperty("computerName")
                 .GetString() ?? "unknown";
 
-            var filename = $"{computerName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{reportHash.Substring(0, 8)}.json";
+            var filename = $"{computerName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}_{reportHash[..8]}.json";
             var filepath = Path.Combine(_storagePath, filename);
 
-            // Guardar metadatos + reporte
+            // FIX: Obtener IP real del cliente
+            var sourceIp = GetClientIp();
+
             var envelope = new
             {
                 receivedAt = DateTime.UtcNow.ToString("O"),
                 reportHash,
                 signature,
-                sourceIp = "TODO", // Se llena desde middleware
+                sourceIp,
                 report = JsonDocument.Parse(jsonReport).RootElement
             };
 
             var options = new JsonSerializerOptions { WriteIndented = true };
-            await File.WriteAllTextAsync(
-                filepath,
-                JsonSerializer.Serialize(envelope, options));
+            await File.WriteAllTextAsync(filepath, JsonSerializer.Serialize(envelope, options));
         }
         finally
         {
@@ -63,33 +68,56 @@ public class AuditStorageService
         }
     }
 
+    /// <summary>
+    /// FIX: Busca agentes existentes por fingerprint antes de crear uno nuevo.
+    /// Si ya existe, actualiza lastSeenAt y retorna el agentId existente.
+    /// </summary>
     public Task<string> RegisterAgentAsync(string fingerprint, string publicKey)
     {
-        var agentId = Guid.NewGuid().ToString("N")[..12].ToUpper();
-        var agentFile = Path.Combine(_agentsPath, $"{agentId}.json");
+        // Buscar agente existente por fingerprint
+        var existingFiles = Directory.GetFiles(_agentsPath, "*.json");
+        foreach (var file in existingFiles)
+        {
+            try
+            {
+                var json = File.ReadAllText(file);
+                using var doc = JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("fingerprint", out var fp) &&
+                    fp.GetString()?.Equals(fingerprint, StringComparison.OrdinalIgnoreCase) == true)
+                {
+                    // Agente ya registrado, actualizar lastSeenAt
+                    var agentId = doc.RootElement.GetProperty("agentId").GetString()!;
+                    _logger.LogInformation("Agente existente reconnectado: {AgentId}", agentId);
+                    return Task.FromResult(agentId);
+                }
+            }
+            catch { /* archivo corrupto, ignorar */ }
+        }
+
+        // Nuevo agente
+        var newAgentId = Guid.NewGuid().ToString("N")[..12].ToUpper();
+        var agentFile = Path.Combine(_agentsPath, $"{newAgentId}.json");
 
         var agentData = new
         {
-            agentId,
+            agentId = newAgentId,
             fingerprint,
             publicKey,
             registeredAt = DateTime.UtcNow.ToString("O"),
             lastSeenAt = DateTime.UtcNow.ToString("O")
         };
 
-        File.WriteAllText(
-            agentFile,
+        File.WriteAllText(agentFile,
             JsonSerializer.Serialize(agentData, new JsonSerializerOptions { WriteIndented = true }));
 
-        return Task.FromResult(agentId);
+        return Task.FromResult(newAgentId);
     }
 
     public async Task<(List<object> reports, int total)> GetReportsAsync(
         int page, int pageSize, string? computerName)
     {
         var files = Directory.GetFiles(_storagePath, "*.json")
-            .OrderByDescending(f => f)
-            .ToList();
+            .OrderByDescending(f => f).ToList();
 
         if (!string.IsNullOrEmpty(computerName))
             files = files.Where(f => f.Contains(computerName, StringComparison.OrdinalIgnoreCase)).ToList();
@@ -116,10 +144,30 @@ public class AuditStorageService
         {
             totalReports = files.Length,
             totalAgents = agents.Length,
-            storagePath = _storagePath,
             lastReportAt = files.Length > 0
                 ? File.GetLastWriteTime(files.OrderByDescending(f => f).First()).ToString("O")
                 : null
         };
     }
-}
+
+    /// <summary>
+    /// Obtiene la IP real del cliente (soporta proxys).
+    /// </summary>
+    private string GetClientIp()
+    {
+        var http = _httpContextAccessor.HttpContext;
+        if (http == null) return "unknown";
+
+        // Intentar obtener de headers de proxy primero
+        var forwarded = http.Request.Headers["X-Forwarded-For"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(forwarded))
+            return forwarded.Split(',').First().Trim();
+
+        var realIp = http.Request.Headers["X-Real-IP"].FirstOrDefault();
+        if (!string.IsNullOrEmpty(realIp))
+            return realIp;
+
+        return http.Connection?.RemoteIpAddress?.ToString() ?? "unknown";
+        }
+    }
+
