@@ -1,4 +1,5 @@
 using AuditAgent.Api.Services;
+using AuditAgent.Api.Middleware;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,6 +21,7 @@ builder.WebHost.ConfigureKestrel(options =>
 });
 
 builder.Services.AddControllers();
+builder.Services.AddHttpContextAccessor();  // FIX CRITICO: requerido por AuditStorageService.GetClientIp()
 builder.Services.AddSingleton<AuditStorageService>();
 builder.Services.AddSingleton<EncryptionKeyService>();
 builder.Services.AddCors(options =>

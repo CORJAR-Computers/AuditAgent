@@ -1,6 +1,5 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using System.Security.Cryptography;
 
 namespace AuditAgent.Api.Middleware;
 

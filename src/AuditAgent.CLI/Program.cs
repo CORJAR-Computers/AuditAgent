@@ -289,20 +289,18 @@ public static class Program
         return path;
     }
 
-    static string GenerateCsv(AuditAgent.Core.Models.AuditReport report, string basePath)
+    static async Task<string> GenerateCsv(AuditAgent.Core.Models.AuditReport report, string basePath)
     {
         var path = basePath + "_software.csv";
         using var writer = new StreamWriter(path);
-        writer.WriteLine("Nombre,Version,Fabricante,Fecha Instalacion,Tamano MB,Fuente,Arquitectura");
+        await writer.WriteLineAsync("Nombre,Version,Fabricante,Fecha Instalacion,Tamano MB,Fuente,Arquitectura");
 
         foreach (var sw in report.InstalledSoftware)
         {
             var name = sw.Name?.Replace(",", ";") ?? "";
-            var version = sw.Version ?? "";
-            var pub = sw.Publisher?.Replace(",", ";") ?? "";
-            var date = sw.InstallDate ?? "";
-            var size = sw.EstimatedSizeMb;
-            writer.WriteLine($"{name},{version},{pub},{date},{size},{sw.Source},{sw.Architecture}");
+            var publisher = sw.Publisher?.Replace(",", ";") ?? "";
+            await writer.WriteLineAsync(
+                $"{name},{sw.Version},{publisher},{sw.InstallDate},{sw.EstimatedSizeMb},{sw.Source},{sw.Architecture}");
         }
         return path;
     }

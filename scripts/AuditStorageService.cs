@@ -85,8 +85,11 @@ public class AuditStorageService
                 if (doc.RootElement.TryGetProperty("fingerprint", out var fp) &&
                     fp.GetString()?.Equals(fingerprint, StringComparison.OrdinalIgnoreCase) == true)
                 {
-                    // Agente ya registrado, actualizar lastSeenAt
+                    // FIX: Actualizar lastSeenAt en el archivo existente
                     var agentId = doc.RootElement.GetProperty("agentId").GetString()!;
+                    var existingData = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(json)!;
+                    existingData["lastSeenAt"] = JsonSerializer.SerializeToElement(DateTime.UtcNow.ToString("O"));
+                    File.WriteAllText(file, JsonSerializer.Serialize(existingData, new JsonSerializerOptions { WriteIndented = true }));
                     _logger.LogInformation("Agente existente reconnectado: {AgentId}", agentId);
                     return Task.FromResult(agentId);
                 }
@@ -168,6 +171,5 @@ public class AuditStorageService
             return realIp;
 
         return http.Connection?.RemoteIpAddress?.ToString() ?? "unknown";
-        }
     }
 }

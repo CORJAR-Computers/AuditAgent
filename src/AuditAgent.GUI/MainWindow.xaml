@@ -1,0 +1,312 @@
+<Window x:Class="AuditAgent.GUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="AuditAgent - CORJAR Computers"
+        Icon="AuditAgent.ico"
+        Height="780" Width="960"
+        MinHeight="680" MinWidth="820"
+        WindowStartupLocation="CenterScreen"
+        Background="#F0F2F5"
+        ResizeMode="CanResize"
+        Loaded="Window_Loaded">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- HEADER -->
+        <Border Grid.Row="0" Background="#1B3A5C" Padding="24,16">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" VerticalAlignment="Center">
+                    <TextBlock Text="AuditAgent" FontSize="24" FontWeight="Bold" Foreground="White"/>
+                    <TextBlock Text="Auditoria de Software y Hardware Corporativo"
+                               FontSize="12" Foreground="#A0C4E8" Margin="0,2,0,0"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <TextBlock Text="CORJAR Computers" FontSize="13" Foreground="#A0C4E8" FontWeight="Medium"/>
+                    <TextBlock x:Name="TxtVersion" Text="v1.0.0" FontSize="11" Foreground="#7BA3C7"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- MAIN CONTENT -->
+        <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="24,20,24,12">
+            <StackPanel MaxWidth="900">
+
+                <!-- SYSTEM INFO CARD -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel>
+                        <TextBlock Text="Informacion del Sistema" Style="{StaticResource SectionTitle}"/>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Column="0" Text="Nombre del Equipo" Style="{StaticResource LabelText}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="0" x:Name="TxtComputerName" Text="---" Style="{StaticResource ValueText}"/>
+
+                            <TextBlock Grid.Column="1" Text="Fabricante" Style="{StaticResource LabelText}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="1" x:Name="TxtManufacturer" Text="---" Style="{StaticResource ValueText}"/>
+
+                            <TextBlock Grid.Column="2" Text="Modelo" Style="{StaticResource LabelText}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="2" x:Name="TxtModel" Text="---" Style="{StaticResource ValueText}"/>
+
+                            <TextBlock Grid.Column="3" Text="Numero de Serie" Style="{StaticResource LabelText}"/>
+                            <TextBlock Grid.Row="1" Grid.Column="3" x:Name="TxtSerial" Text="---" Style="{StaticResource ValueText}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="Dominio" Style="{StaticResource LabelText}" Margin="0,4,0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="0" x:Name="TxtDomain" Text="---" Style="{StaticResource ValueText}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="1" Text="Tipo de Sistema" Style="{StaticResource LabelText}" Margin="0,4,0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="1" x:Name="TxtSystemType" Text="---" Style="{StaticResource ValueText}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="2" Text="UUID" Style="{StaticResource LabelText}" Margin="0,4,0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="2" x:Name="TxtUuid" Text="---" Style="{StaticResource ValueText}"/>
+
+                            <TextBlock Grid.Row="2" Grid.Column="3" Text="Sistema Operativo" Style="{StaticResource LabelText}" Margin="0,4,0,2"/>
+                            <TextBlock Grid.Row="3" Grid.Column="3" x:Name="TxtOS" Text="---" Style="{StaticResource ValueText}"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <!-- AUDIT CONTROL CARD -->
+                <Border Style="{StaticResource CardBorder}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Ejecutar Auditoria" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Grid.Column="1" x:Name="TxtAuditStatus" Text="Listo"
+                                       FontSize="12" FontWeight="Medium" Foreground="#28A745"
+                                       VerticalAlignment="Center" Margin="0,0,0,12"/>
+                        </Grid>
+
+                        <TextBlock Text="Se recopilara informacion completa del equipo: sistema, hardware, software instalado, parches de seguridad y configuracion de red."
+                                   FontSize="12" Foreground="#666666" TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="BtnStartAudit" Content="Iniciar Auditoria"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Click="BtnStartAudit_Click" Width="200"/>
+                            <Button x:Name="BtnCancel" Content="Cancelar"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="BtnCancel_Click" Width="120" Margin="12,0,0,0" IsEnabled="False"/>
+                        </StackPanel>
+
+                        <StackPanel Margin="0,16,0,0">
+                            <Grid Margin="0,0,0,8">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Column="0" x:Name="TxtProgressText" Text="" FontSize="12" Foreground="#555555"/>
+                                <TextBlock Grid.Column="1" x:Name="TxtProgressPercent" Text="" FontSize="12" Foreground="#555555" FontWeight="Medium"/>
+                            </Grid>
+                            <ProgressBar x:Name="ProgressBar" Height="8" Minimum="0" Maximum="100" Value="0"
+                                         Background="#E0E0E0" Foreground="#1B6EC2"/>
+                            <WrapPanel Margin="0,12,0,0">
+                                <TextBlock x:Name="StepSystem" Text="○ Sistema" FontSize="11" Foreground="#999" Margin="0,0,16,4"/>
+                                <TextBlock x:Name="StepHardware" Text="○ Hardware" FontSize="11" Foreground="#999" Margin="0,0,16,4"/>
+                                <TextBlock x:Name="StepSoftware" Text="○ Software" FontSize="11" Foreground="#999" Margin="0,0,16,4"/>
+                                <TextBlock x:Name="StepOS" Text="○ S.O." FontSize="11" Foreground="#999" Margin="0,0,16,4"/>
+                                <TextBlock x:Name="StepNetwork" Text="○ Red" FontSize="11" Foreground="#999" Margin="0,0,16,4"/>
+                                <TextBlock x:Name="StepSigning" Text="○ Firma" FontSize="11" Foreground="#999"/>
+                            </WrapPanel>
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <!-- FORMAT SELECTION CARD -->
+                <Border Style="{StaticResource CardBorder}" x:Name="CardFormatSelection">
+                    <StackPanel>
+                        <TextBlock Text="Formato de Salida del Informe" Style="{StaticResource SectionTitle}"/>
+                        <TextBlock Text="Seleccione el formato deseado para el informe de auditoria. Puede generar multiples formatos a la vez."
+                                   FontSize="12" Foreground="#666666" TextWrapping="Wrap" Margin="0,0,0,16"/>
+
+                        <WrapPanel Margin="0,0,0,16">
+                            <StackPanel Margin="0,0,24,0">
+                                <CheckBox x:Name="ChkHtml" Content="HTML" IsChecked="True"
+                                          FontSize="14" FontWeight="Medium" Margin="0,0,0,2"/>
+                                <TextBlock Text="Informe web interactivo" FontSize="11" Foreground="#888"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,24,0">
+                                <CheckBox x:Name="ChkPdf" Content="PDF" IsChecked="True"
+                                          FontSize="14" FontWeight="Medium" Margin="0,0,0,2"/>
+                                <TextBlock Text="Documento portable" FontSize="11" Foreground="#888"/>
+                            </StackPanel>
+                            <StackPanel Margin="0,0,24,0">
+                                <CheckBox x:Name="ChkJson" Content="JSON"
+                                          FontSize="14" FontWeight="Medium" Margin="0,0,0,2"/>
+                                <TextBlock Text="Datos estructurados" FontSize="11" Foreground="#888"/>
+                            </StackPanel>
+                            <StackPanel>
+                                <CheckBox x:Name="ChkCsv" Content="CSV"
+                                          FontSize="14" FontWeight="Medium" Margin="0,0,0,2"/>
+                                <TextBlock Text="Hoja de calculo" FontSize="11" Foreground="#888"/>
+                            </StackPanel>
+                        </WrapPanel>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button x:Name="BtnGenerate" Content="Generar Informe(s)"
+                                    Style="{StaticResource PrimaryButton}"
+                                    Click="BtnGenerate_Click" IsEnabled="False"/>
+                            <Button x:Name="BtnOpenFolder" Content="Abrir Carpeta"
+                                    Style="{StaticResource SecondaryButton}"
+                                    Click="BtnOpenFolder_Click" Margin="12,0,0,0"/>
+                        </StackPanel>
+
+                        <TextBlock x:Name="TxtOutputPath" Text=""
+                                   FontSize="11" Foreground="#1B6EC2" Margin="0,8,0,0" TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
+
+                <!-- SUMMARY CARD -->
+                <Border Style="{StaticResource CardBorder}" x:Name="CardSummary" Visibility="Collapsed">
+                    <StackPanel>
+                        <TextBlock Text="Resumen de la Auditoria" Style="{StaticResource SectionTitle}"/>
+
+                        <Grid Margin="0,0,0,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+
+                            <Border Grid.Column="0" Background="#E3F2FD" CornerRadius="6" Padding="12" Margin="0,0,8,0">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Software" FontSize="11" Foreground="#1565C0"/>
+                                    <TextBlock x:Name="TxtSoftwareCount" Text="0" FontSize="24" FontWeight="Bold"
+                                               Foreground="#1565C0" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="programas" FontSize="11" Foreground="#1565C0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="1" Background="#E8F5E9" CornerRadius="6" Padding="12" Margin="0,0,8,0">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Parches" FontSize="11" Foreground="#2E7D32"/>
+                                    <TextBlock x:Name="TxtPatchCount" Text="0" FontSize="24" FontWeight="Bold"
+                                               Foreground="#2E7D32" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="actualizaciones" FontSize="11" Foreground="#2E7D32"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="2" Background="#FFF3E0" CornerRadius="6" Padding="12" Margin="0,0,8,0">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Hardware" FontSize="11" Foreground="#E65100"/>
+                                    <TextBlock x:Name="TxtHardwareInfo" Text="---" FontSize="24" FontWeight="Bold"
+                                               Foreground="#E65100" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="discos" FontSize="11" Foreground="#E65100"/>
+                                </StackPanel>
+                            </Border>
+
+                            <Border Grid.Column="3" Background="#F3E5F5" CornerRadius="6" Padding="12">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock Text="Red" FontSize="11" Foreground="#7B1FA2"/>
+                                    <TextBlock x:Name="TxtNetworkInfo" Text="---" FontSize="24" FontWeight="Bold"
+                                               Foreground="#7B1FA2" HorizontalAlignment="Center"/>
+                                    <TextBlock Text="adaptadores" FontSize="11" Foreground="#7B1FA2"/>
+                                </StackPanel>
+                            </Border>
+                        </Grid>
+
+                        <Grid Margin="0,8,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Duracion: " FontSize="12" Foreground="#555"/>
+                            <TextBlock Grid.Column="1" x:Name="TxtDuration" Text="---" FontSize="12" Foreground="#555" FontWeight="Medium"/>
+                        </Grid>
+                        <Grid Margin="0,4,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Firma Digital: " FontSize="12" Foreground="#555"/>
+                            <TextBlock Grid.Column="1" x:Name="TxtSignature" Text="---" FontSize="12" Foreground="#28A745" FontWeight="Medium"/>
+                        </Grid>
+
+                        <ItemsControl x:Name="WarningsList" Margin="0,12,0,0">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#FFF8E1" CornerRadius="4" Padding="10,6" Margin="0,0,0,4"
+                                            BorderBrush="#FFB300" BorderThickness="1">
+                                        <TextBlock Text="{Binding}" FontSize="11" Foreground="#F57F17" TextWrapping="Wrap"/>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </StackPanel>
+                </Border>
+
+                <!-- SOFTWARE LIST CARD -->
+                <Border Style="{StaticResource CardBorder}" x:Name="CardSoftware" Visibility="Collapsed">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Grid.Column="0" Text="Software Instalado" Style="{StaticResource SectionTitle}"/>
+                            <TextBlock Grid.Column="1" x:Name="TxtSoftwareTotal" Text=""
+                                       FontSize="12" Foreground="#666" VerticalAlignment="Center"/>
+                        </Grid>
+
+                        <TextBox x:Name="TxtSearch" Text="Buscar software..." FontSize="12"
+                                 Padding="8,6" Margin="0,0,0,12"
+                                 Background="#F5F5F5" BorderBrush="#DDD" BorderThickness="1"
+                                 GotFocus="TxtSearch_GotFocus" LostFocus="TxtSearch_LostFocus"
+                                 TextChanged="TxtSearch_TextChanged"/>
+
+                        <DataGrid x:Name="DgSoftware" AutoGenerateColumns="False"
+                                  IsReadOnly="True" HeadersVisibility="Column"
+                                  GridLinesVisibility="Horizontal"
+                                  AlternatingRowBackground="#F8F9FA"
+                                  FontSize="12" MaxHeight="350" CanUserSortColumns="True">
+                            <DataGrid.Columns>
+                                <DataGridTextColumn Header="#" Binding="{Binding RowNumber}" Width="40"/>
+                                <DataGridTextColumn Header="Nombre" Binding="{Binding Name}" Width="*"/>
+                                <DataGridTextColumn Header="Version" Binding="{Binding Version}" Width="100"/>
+                                <DataGridTextColumn Header="Editor" Binding="{Binding Publisher}" Width="160"/>
+                                <DataGridTextColumn Header="Fecha Inst." Binding="{Binding InstallDate}" Width="110"/>
+                                <DataGridTextColumn Header="Tamano" Binding="{Binding Size}" Width="90"/>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </StackPanel>
+                </Border>
+
+            </StackPanel>
+        </ScrollViewer>
+
+        <!-- STATUS BAR -->
+        <Border Grid.Row="2" Background="#1B3A5C" Padding="12,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtStatusBar" Text="Listo" FontSize="11" Foreground="#A0C4E8"/>
+                <TextBlock Grid.Column="1" x:Name="TxtTimestamp" Text="" FontSize="11" Foreground="#7BA3C7"/>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>

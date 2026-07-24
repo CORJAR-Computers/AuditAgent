@@ -39,44 +39,46 @@ public static class PdfReportGenerator
 
     static void ComposeHeader(IContainer c, AuditReport report)
     {
-        c.Row(row =>
+        c.Column(column =>
         {
-            row.RelativeItem().Column(col =>
+            column.Item().Row(row =>
             {
-                col.Item().Text("REPORTE DE AUDITORIA").Bold().FontSize(20).FontColor("#2c3e50");
-                col.Item().Text($"Equipo: {report.Computer.ComputerName}").FontSize(11).FontColor("#7f8c8d");
+                row.RelativeItem().Column(col =>
+                {
+                    col.Item().Text("REPORTE DE AUDITORIA").Bold().FontSize(20).FontColor("#2c3e50");
+                    col.Item().Text($"Equipo: {report.Computer.ComputerName}").FontSize(11).FontColor("#7f8c8d");
+                });
+                row.ConstantItem(120).Column(col =>
+                {
+                    col.Item().AlignRight().Text("CORJAR").Bold().FontSize(16).FontColor("#3498db");
+                    col.Item().AlignRight().Text("Computers").FontSize(10).FontColor("#7f8c8d");
+                });
             });
-            row.ConstantItem(120).Column(col =>
-            {
-                col.Item().AlignRight().Text("CORJAR").Bold().FontSize(16).FontColor("#3498db");
-                col.Item().AlignRight().Text("Computers").FontSize(10).FontColor("#7f8c8d");
-            });
+            column.Item().PaddingTop(5).LineHorizontal(1).LineColor("#3498db");
         });
-
-        c.LineHorizontal(1).LineColor("#3498db");
-        c.PaddingVertical(5);
     }
 
     static void ComposeContent(IContainer c, AuditReport report)
     {
-        c.PaddingVertical(10);
-
-        // --- Resumen ---
-        Section(c, "Resumen de la Auditoria", comp =>
+        c.PaddingVertical(10).Column(column =>
         {
-            comp.Column(columns =>
+            // --- Resumen ---
+            Section(column.Item(), "Resumen de la Auditoria", comp =>
+        {
+            comp.Row(row =>
             {
-                StatColumn(columns, "Programas", $"{report.InstalledSoftware.Count}");
-                StatColumn(columns, "Parches", $"{report.SecurityPatches.Count}");
-                StatColumn(columns, "Redes", $"{report.NetworkAdapters.Count}");
-                StatColumn(columns, "RAM", $"{report.Hardware.TotalMemoryGb} GB");
-                StatColumn(columns, "Duracion", $"{report.AuditDurationMs} ms");
+                row.Spacing(10);
+                StatColumn(row, "Programas", $"{report.InstalledSoftware.Count}");
+                StatColumn(row, "Parches", $"{report.SecurityPatches.Count}");
+                StatColumn(row, "Redes", $"{report.NetworkAdapters.Count}");
+                StatColumn(row, "RAM", $"{report.Hardware.TotalMemoryGb} GB");
+                StatColumn(row, "Duracion", $"{report.AuditDurationMs} ms");
             });
         });
 
-        // --- Equipo ---
-        Section(c, "Informacion del Equipo", comp =>
-        {
+            // --- Equipo ---
+            Section(column.Item(), "Informacion del Equipo", comp =>
+            {
             comp.Grid(grid =>
             {
                 grid.Columns(2);
@@ -92,9 +94,9 @@ public static class PdfReportGenerator
             });
         });
 
-        // --- SO ---
-        Section(c, "Sistema Operativo", comp =>
-        {
+            // --- SO ---
+            Section(column.Item(), "Sistema Operativo", comp =>
+            {
             comp.Grid(grid =>
             {
                 grid.Columns(2);
@@ -108,10 +110,10 @@ public static class PdfReportGenerator
             });
         });
 
-        // --- Hardware ---
-        var cpu = report.Hardware.Processors.FirstOrDefault();
-        Section(c, "Hardware", comp =>
-        {
+            // --- Hardware ---
+            var cpu = report.Hardware.Processors.FirstOrDefault();
+            Section(column.Item(), "Hardware", comp =>
+            {
             comp.Grid(grid =>
             {
                 grid.Columns(2);
@@ -126,11 +128,11 @@ public static class PdfReportGenerator
             });
         });
 
-        // --- Discos ---
-        if (report.Hardware.Disks.Count > 0)
-        {
-            Section(c, "Almacenamiento", comp =>
+            // --- Discos ---
+            if (report.Hardware.Disks.Count > 0)
             {
+                Section(column.Item(), "Almacenamiento", comp =>
+                {
                 comp.Table(table =>
                 {
                     table.ColumnsDefinition(columns =>
@@ -143,10 +145,10 @@ public static class PdfReportGenerator
 
                     table.Header(header =>
                     {
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Modelo").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Tipo").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Capacidad").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Particiones").FontColor("white").Bold().FontSize(8);
+                        HeaderCell(header.Cell(), "Modelo");
+                        HeaderCell(header.Cell(), "Tipo");
+                        HeaderCell(header.Cell(), "Capacidad");
+                        HeaderCell(header.Cell(), "Particiones");
                     });
 
                     foreach (var disk in report.Hardware.Disks)
@@ -162,11 +164,11 @@ public static class PdfReportGenerator
             });
         }
 
-        // --- Red ---
-        if (report.NetworkAdapters.Count > 0)
-        {
-            Section(c, "Red", comp =>
+            // --- Red ---
+            if (report.NetworkAdapters.Count > 0)
             {
+                Section(column.Item(), "Red", comp =>
+                {
                 comp.Table(table =>
                 {
                     table.ColumnsDefinition(columns =>
@@ -180,11 +182,11 @@ public static class PdfReportGenerator
 
                     table.Header(header =>
                     {
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Adaptador").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("MAC").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("IP").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("DNS").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("DHCP").FontColor("white").Bold().FontSize(8);
+                        HeaderCell(header.Cell(), "Adaptador");
+                        HeaderCell(header.Cell(), "MAC");
+                        HeaderCell(header.Cell(), "IP");
+                        HeaderCell(header.Cell(), "DNS");
+                        HeaderCell(header.Cell(), "DHCP");
                     });
 
                     foreach (var net in report.NetworkAdapters)
@@ -199,9 +201,9 @@ public static class PdfReportGenerator
             });
         }
 
-        // --- Software (tabla larga, con salto de pagina automatico) ---
-        Section(c, $"Software Instalado ({report.InstalledSoftware.Count} programas)", comp =>
-        {
+            // --- Software (tabla larga, con salto de pagina automatico) ---
+            Section(column.Item(), $"Software Instalado ({report.InstalledSoftware.Count} programas)", comp =>
+            {
             comp.Table(table =>
             {
                 table.ColumnsDefinition(columns =>
@@ -216,12 +218,12 @@ public static class PdfReportGenerator
 
                 table.Header(header =>
                 {
-                    header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("#").FontColor("white").Bold().FontSize(8);
-                    header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Nombre").FontColor("white").Bold().FontSize(8);
-                    header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Version").FontColor("white").Bold().FontSize(8);
-                    header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Fabricante").FontColor("white").Bold().FontSize(8);
-                    header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Fecha").FontColor("white").Bold().FontSize(8);
-                    header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Tamano").FontColor("white").Bold().FontSize(8);
+                    HeaderCell(header.Cell(), "#");
+                    HeaderCell(header.Cell(), "Nombre");
+                    HeaderCell(header.Cell(), "Version");
+                    HeaderCell(header.Cell(), "Fabricante");
+                    HeaderCell(header.Cell(), "Fecha");
+                    HeaderCell(header.Cell(), "Tamano");
                 });
 
                 var i = 1;
@@ -237,11 +239,11 @@ public static class PdfReportGenerator
             });
         });
 
-        // --- Parches ---
-        if (report.SecurityPatches.Count > 0)
-        {
-            Section(c, $"Parches de Seguridad ({report.SecurityPatches.Count})", comp =>
+            // --- Parches ---
+            if (report.SecurityPatches.Count > 0)
             {
+                Section(column.Item(), $"Parches de Seguridad ({report.SecurityPatches.Count})", comp =>
+                {
                 comp.Table(table =>
                 {
                     table.ColumnsDefinition(columns =>
@@ -254,10 +256,10 @@ public static class PdfReportGenerator
 
                     table.Header(header =>
                     {
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("KB").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Descripcion").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Fecha").FontColor("white").Bold().FontSize(8);
-                        header.Cell().Background("#34495e").PaddingVertical(4).PaddingHorizontal(6).Text("Instalado por").FontColor("white").Bold().FontSize(8);
+                        HeaderCell(header.Cell(), "KB");
+                        HeaderCell(header.Cell(), "Descripcion");
+                        HeaderCell(header.Cell(), "Fecha");
+                        HeaderCell(header.Cell(), "Instalado por");
                     });
 
                     foreach (var p in report.SecurityPatches)
@@ -271,54 +273,61 @@ public static class PdfReportGenerator
             });
         }
 
-        // --- Warnings ---
-        if (report.Warnings.Count > 0)
-        {
-            Section(c, "Advertencias", comp =>
+            // --- Warnings ---
+            if (report.Warnings.Count > 0)
             {
-                foreach (var w in report.Warnings)
+                Section(column.Item(), "Advertencias", comp =>
                 {
-                    comp.Text($"[{w.Category}] {w.Message}").FontSize(8).FontColor("#e67e22");
-                    if (!string.IsNullOrEmpty(w.Details))
-                        comp.Text($"  {w.Details}").FontSize(7).FontColor("#95a5a6");
-                }
-            });
-        }
+                    comp.Column(wCol =>
+                    {
+                        foreach (var w in report.Warnings)
+                        {
+                            wCol.Item().Text($"[{w.Category}] {w.Message}").FontSize(8).FontColor("#e67e22");
+                            if (!string.IsNullOrEmpty(w.Details))
+                                wCol.Item().Text($"  {w.Details}").FontSize(7).FontColor("#95a5a6");
+                        }
+                    });
+                });
+            }
+        });
     }
 
     static void ComposeFooter(IContainer c)
     {
-        c.AlignCenter().Text(x =>
+        c.Column(column =>
         {
-            x.Span("Generado por AuditAgent v1.0.0 | CORJAR Computers").FontSize(8).FontColor("#95a5a6");
-            x.Span("   |   ");
-            x.Span("Documento confidencial - Uso interno").FontSize(8).FontColor("#bdc3c7");
-        });
+            column.Item().AlignCenter().Text(x =>
+            {
+                x.Span("Generado por AuditAgent v1.0.0 | CORJAR Computers").FontSize(8).FontColor("#95a5a6");
+                x.Span("   |   ");
+                x.Span("Documento confidencial - Uso interno").FontSize(8).FontColor("#bdc3c7");
+            });
 
-        c.LineHorizontal(0.5f).LineColor("#ecf0f1");
-        c.AlignCenter().Text(x =>
-        {
-            x.Span("Pagina ").FontSize(8).FontColor("#95a5a6");
-            x.CurrentPageNumber().FontSize(8).FontColor("#95a5a6");
-            x.Span(" de ").FontSize(8).FontColor("#95a5a6");
-            x.TotalPages().FontSize(8).FontColor("#95a5a6");
+            column.Item().PaddingVertical(2).LineHorizontal(0.5f).LineColor("#ecf0f1");
+            column.Item().AlignCenter().Text(x =>
+            {
+                x.Span("Pagina ");
+                x.CurrentPageNumber();
+                x.Span(" de ");
+                x.TotalPages();
+            });
         });
     }
 
     // --- Helpers ---
     static void Section(IContainer c, string title, Action<IContainer> content)
     {
-        c.PaddingVertical(8);
-        c.LineHorizontal(0.5f).LineColor("#ecf0f1");
-        c.PaddingTop(5);
-        c.Text(title).SemiBold().FontSize(13).FontColor("#2c3e50");
-        c.PaddingTop(5);
-        content(c);
+        c.PaddingVertical(8).Column(column =>
+        {
+            column.Item().LineHorizontal(0.5f).LineColor("#ecf0f1");
+            column.Item().PaddingTop(5).Text(title).SemiBold().FontSize(13).FontColor("#2c3e50");
+            column.Item().PaddingTop(5).Element(content);
+        });
     }
 
-    static void StatColumn(ColumnDescriptor columns, string label, string value)
+    static void StatColumn(QuestPDF.Fluent.RowDescriptor row, string label, string value)
     {
-        columns.Item().Column(col =>
+        row.RelativeItem().Column(col =>
         {
             col.Item().Background("#f8f9fa").Padding(8)
                 .AlignCenter().Text(value).Bold().FontSize(16).FontColor("#3498db");
@@ -332,5 +341,9 @@ public static class PdfReportGenerator
         grid.Item().Text(value ?? "N/A").FontSize(9);
     }
 
-
+    static void HeaderCell(IContainer cell, string text)
+    {
+        cell.Background("#34495e").PaddingVertical(4).PaddingHorizontal(6)
+            .Text(text).FontColor(QuestPDF.Helpers.Colors.White).Bold().FontSize(8);
+    }
 }
